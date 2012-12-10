@@ -15,7 +15,7 @@
 =====================================================
 */
 if( ! defined( 'DATALIFEENGINE' ) ) {
-  die( "Hacking attempt!" );
+	die( "Hacking attempt!" );
 }
 
 	
@@ -111,6 +111,11 @@ if( ! defined( 'DATALIFEENGINE' ) ) {
 		}
 		
 		$news_found = TRUE;
+			if( $row['allow_rate'] ){
+			$tpl->set( '{rate-val}', ($row['rating']>0)?"+".$row['rating']:$row['rating'] );
+			$tpl->set( '[rating]', "" );
+			$tpl->set( '[/rating]', "" );
+		} else $tpl->set_block( "'\\[rating\\](.*?)\\[/rating\\]'si", "" );
 		$row['date'] = strtotime( $row['date'] );
 		
 		if( (strlen( $row['full_story'] ) < 13) and (strpos( $tpl->copy_template, "{short-story}" ) === false) ) {
@@ -341,6 +346,10 @@ if( ! defined( 'DATALIFEENGINE' ) ) {
 		}
 
 		$tpl->copy_template = preg_replace ( "#\{date=(.+?)\}#ie", "langdate('\\1', '{$row['date']}')", $tpl->copy_template );
+		 $tpl->set('{forumDiscus}', $apiBullet->setLinckDiscus(array(
+    'idPost' => $row['id'],
+    'id' => $row['topic_id'],
+    'tree' => $category_id))) ;
 
 		if ( $row['fixed'] ) {
 
@@ -549,7 +558,17 @@ if( ! defined( 'DATALIFEENGINE' ) ) {
 			if( $config['allow_quick_wysiwyg'] ) $allow_comments_ajax = true;
 		} else
 			$tpl->set_block( "'\\[edit\\](.*?)\\[/edit\\]'si", "" );
-		
+
+/*Block.Pro - relatednews*/
+$block_id='related_'.$row['id']; 
+$relatedpro='1'; 
+$template='relatednews'; 
+$news_num='5'; 
+$img_size='50x45'; 
+$cache_live='86400';  
+include_once ENGINE_DIR . '/modules/block.pro.2.php'; 
+/*Block.Pro - relatednews*/
+			
 		if( $config['related_news'] AND $view_template != "print"  AND strpos( $tpl->copy_template, "{related-news}" ) !== false) {
 			
 			if ( $allow_full_cache ) $buffer = dle_cache( "related", $row['id'].$config['skin'], true ); else $buffer = false;
@@ -1063,10 +1082,13 @@ if( ! defined( 'DATALIFEENGINE' ) ) {
 	}
 	
 	if( !$news_found AND !$perm ) msgbox( $lang['all_err_1'], "<b>{$user_group[$member_id['user_group']]['group_name']}</b> " . $lang['news_err_28'] );
-	elseif( !$news_found ) {
-		@header( "HTTP/1.0 404 Not Found" );
-		msgbox( $lang['all_err_1'], $lang['news_err_12'] );
+	// 301 редирект на главную, если новость не найдена/не существует
+	elseif( ! $news_found ) {
+					header("HTTP/1.0 301 Moved Permanently");
+					header("Location: {$config['http_home_url']}");
+					die("Redirect");
 	}
+    // 301 редирект на главную, если новость не найдена/не существует
 
 //####################################################################################################################
 //		 Просмотр комментариев
@@ -1083,7 +1105,7 @@ if( $allow_comments AND $news_found) {
 		if( $config['allow_cmod'] ) $where_approve = " AND " . PREFIX . "_comments.approve=1";
 		else $where_approve = "";
 
-		$comments->query = "SELECT " . PREFIX . "_comments.id, post_id, " . PREFIX . "_comments.user_id, date, autor as gast_name, " . PREFIX . "_comments.email as gast_email, text, ip, is_register, name, " . USERPREFIX . "_users.email, news_num, comm_num, user_group, lastdate, reg_date, signature, foto, fullname, land, icq, xfields FROM " . PREFIX . "_comments LEFT JOIN " . USERPREFIX . "_users ON " . PREFIX . "_comments.user_id=" . USERPREFIX . "_users.user_id WHERE " . PREFIX . "_comments.post_id = '$news_id'" . $where_approve . " ORDER BY date " . $config['comm_msort'];
+		$comments->query = "SELECT " . PREFIX . "_comments.rating, " . PREFIX . "_comments.id, post_id, " . PREFIX . "_comments.user_id, date, autor as gast_name, " . PREFIX . "_comments.email as gast_email, text, ip, is_register, name, " . USERPREFIX . "_users.email, news_num, comm_num, user_group, lastdate, reg_date, signature, foto, fullname, land, icq, xfields FROM " . PREFIX . "_comments LEFT JOIN ". USERPREFIX . "_users ON " . PREFIX . "_comments.user_id=" . USERPREFIX . "_users.user_id WHERE " . PREFIX . "_comments.post_id = '$news_id'" . $where_approve . " ORDER BY date " . $config['comm_msort'];
 
 		if ( $allow_full_cache AND $config['allow_comments_cache'] ) $allow_full_cache = $news_id; else $allow_full_cache = false;
 
