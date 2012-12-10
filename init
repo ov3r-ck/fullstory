@@ -15,7 +15,7 @@
 =====================================================
 */
 if (! defined ( 'DATALIFEENGINE' )) {
-  die ( "Hacking attempt!" );
+	die ( "Hacking attempt!" );
 }
 
 @include (ENGINE_DIR . '/data/config.php');
