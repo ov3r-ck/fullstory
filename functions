@@ -15,7 +15,7 @@
 =====================================================
 */
 if( ! defined( 'DATALIFEENGINE' ) ) {
-  die( "Hacking attempt!" );
+	die( "Hacking attempt!" );
 }
 
 $domain_cookie = explode (".", clean_url( $_SERVER['HTTP_HOST'] ));
@@ -229,6 +229,17 @@ HTML;
 HTML;
 	
 	return $rated;
+}
+
+function user_orating($name) {
+	global $db;
+	$rating_p = $rating_c = 0;
+	$post_sql = $db->query( "SELECT (SELECT SUM(value) FROM ".PREFIX."_logs WHERE news_id=p.id) as rating FROM " . PREFIX . "_post p where autor ='$name'" );
+	while($row = $db->get_row($post_sql)) $rating_p += $row['rating'];
+	$comm_sql = $db->query( "SELECT (SELECT SUM(value) FROM ".PREFIX."_logs_comm WHERE comm_id=c.id) as rating FROM " . PREFIX . "_comments c where autor ='$name'" );
+	while($row = $db->get_row($comm_sql)) $rating_c += $row['rating'];
+	$rating = floor($rating_p*1) + floor($rating_c*0.3);
+	return $rating>0?"+".$rating:$rating;
 }
 
 function userrating($id) {
@@ -968,12 +979,12 @@ function get_categories($id) {
 	
 	$parent_id = $cat_info[$id]['parentid'];
 	
-	if( $config['allow_alt_url'] == "yes" ) $list = "<a href=\"" . $config['http_home_url'] . get_url( $id ) . "/\">{$cat_info[$id]['name']}</a>";
+if( $config['allow_alt_url'] == "yes" ) $list = "<span typeof=\"v:Breadcrumb\"><a href=\"" . $config['http_home_url'] . get_url( $id ) . "/\" rel=\"v:url\" property=\"v:title\">{$cat_info[$id]['name']}</a></span>";
 	else $list = "<a href=\"$PHP_SELF?do=cat&amp;category={$cat_info[$id]['alt_name']}\">{$cat_info[$id]['name']}</a>";
 	
 	while ( $parent_id ) {
 		
-		if( $config['allow_alt_url'] == "yes" ) $list = "<a href=\"" . $config['http_home_url'] . get_url( $parent_id ) . "/\">{$cat_info[$parent_id]['name']}</a>" . " &raquo; " . $list;
+		if( $config['allow_alt_url'] == "yes" ) $list = "<span typeof=\"v:Breadcrumb\"><a href=\"" . $config['http_home_url'] . get_url( $parent_id ) . "/\" rel=\"v:url\" property=\"v:title\">{$cat_info[$parent_id]['name']}</a></span>" . " &raquo; " . $list;
 		else $list = "<a href=\"$PHP_SELF?do=cat&amp;category={$cat_info[$parent_id]['alt_name']}\">{$cat_info[$parent_id]['name']}</a>" . " &raquo; " . $list;
 		
 		$parent_id = $cat_info[$parent_id]['parentid'];
