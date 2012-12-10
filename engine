@@ -15,7 +15,7 @@
 =====================================================
 */
 if (! defined ( 'DATALIFEENGINE' )) {
-  die ( "Hacking attempt!" );
+	die ( "Hacking attempt!" );
 }
 
 if ($cstart < 0) $cstart = 0;
@@ -30,6 +30,10 @@ $newsmodule = FALSE;
 $disable_index = FALSE;
 
 switch ( $do ) {
+
+    case "forum": 
+	    include ENGINE_DIR . '/bullet_energy/index.php'; 
+		break;
 	
 	case "search" :
 		
@@ -44,10 +48,25 @@ switch ( $do ) {
 	case "deletenews" :
 		include ENGINE_DIR . '/modules/deletenews.php';
 		break;
+	// DLE Friends v1.5
+	case "friends" :
+		if ($user) include ENGINE_DIR . '/modules/friends_list.php';
+		else msgbox ( $lang['all_err_1'], $lang['news_err_27'] );
+		break;
+	
+	case "friendsfeed" :
+		if ($is_logged) include ENGINE_DIR . '/modules/friends_feed.php';
+		else msgbox ( $lang['all_err_1'], $lang['news_err_27'] );
+		break;
+    // DLE Friends v1.5	
 
 	case "comments" :
 		include ENGINE_DIR . '/modules/comments.php';
 		break;
+	
+	case "game" :
+		include ENGINE_DIR . '/modules/nextgame/nextgame.php';
+        break;
 	
 	case "stats" :
 		include ENGINE_DIR . '/modules/stats.php';
@@ -100,6 +119,10 @@ switch ( $do ) {
 	case "pm" :
 		include ENGINE_DIR . '/modules/pm.php';
 		break;
+
+    case "users" :
+	    include ENGINE_DIR . '/modules/users.php';
+	    break;
 
 	case "unsubscribe" :
 		$_GET['post_id'] = intval ($_GET['post_id']);
@@ -189,7 +212,13 @@ switch ( $do ) {
 				}
 			}
 
-			if (!$category_id) $category_id = 'not detected';
+			//решение проблемы с категориями, которых не существует
+			if ($config['allow_alt_url'] == "yes" AND ! $category_id AND $view_template != "rss") {
+					header("HTTP/1.0 301 Moved Permanently");
+					header("Location: {$config['http_home_url']}");
+					die("Redirect");
+			}
+//решение проблемы с категориями, которых не существует
 			
 			if ($allow_list[0] != "all") {
 				if (! $user_group[$member_id['user_group']]['allow_short'] and ! in_array ( $category_id, $allow_list )) $category_id = 'not detected';
@@ -542,7 +571,22 @@ switch ( $do ) {
 				
 				if ($subaction == '') $subaction = "showfull";
 			}
+			// 301 редирект на главную с адресами страниц новостей, где пропал id
+			if ( ( $config['allow_alt_url'] == "yes" ) && (strpos($_SERVER['REQUEST_URI'], '.html') !== false) && ($dle_module == "main") ) {
+ 
+					header("HTTP/1.0 301 Moved Permanently");
+					header("Location: {$config['http_home_url']}");
+					die("Redirect");
+			}
+            // 301 редирект на главную с адресами страниц новостей, где пропал id
 		}
+		
+		if ( ($config['allow_alt_url'] == "yes") && (intval($_GET['cstart']) == 1) && (strpos($_SERVER['REQUEST_URI'], '/page/1') !== false) ) {
+		$first_page_url = str_replace ( "/page/1", "", $_SERVER['REQUEST_URI'] );
+		header("HTTP/1.0 301 Moved Permanently");
+		header("Location: $first_page_url");
+		die("Redirect");
+	}
 		
 		if (($subaction == "showfull" or $subaction == "addcomment") and ((! isset ( $category ) or $category == ""))) {
 			
@@ -709,10 +753,20 @@ if ($do == "cat" and $category != '' and $subaction == '') {
 
 } elseif ($subaction == 'newposts') $nam_e = $lang['title_new'];
 elseif ($do == 'stats') $nam_e = $lang['title_stats'];
+// DLE Friends v1.5
+elseif ($do == "friends") {
+	if (! $subaction) $nam_e = $lang['fr_friends'];
+	elseif ($subaction == "common") $nam_e = $url_user . $lang['fr_common'];
+	elseif ($subaction == "requests") $nam_e = $lang['fr_activate_title'];
+	elseif ($subaction == "suggestions") $nam_e = $lang['fr_suggestions'];
+}
+elseif ($do == "friendsfeed") $nam_e = $lang['fr_feed_title'];
+// DLE Friends v1.5
 elseif ($do == 'addnews') $nam_e = $lang['title_addnews'];
 elseif ($do == 'register') $nam_e = $lang['title_register'];
 elseif ($do == 'favorites') $nam_e = $lang['title_fav'];
 elseif ($do == 'pm') $nam_e = $lang['title_pm'];
+elseif ($do == 'users') $nam_e = "Список пользователей";
 elseif ($do == 'feedback') $nam_e = $lang['title_feed'];
 elseif ($do == 'lastcomments') $nam_e = $lang['title_last'];
 elseif ($do == 'lostpassword') $nam_e = $lang['title_lost'];
@@ -742,23 +796,33 @@ else {
 }
 
 if (intval($_GET['cstart']) > 1 ){
-
 	$page_extra = ' &raquo; '.$lang['news_site'].' '.intval($_GET['cstart']);
-
-} else $page_extra = '';
+	$meta_ext_page = ' стр. ' .intval($_GET['cstart']);
+} else {
+	$page_extra = '';
+	$meta_ext_page = '';
+}
 
 if ($nam_e) {
 
-	$metatags['title'] = $nam_e . $page_extra . ' &raquo; ' . $metatags['title'];
+	$metatags['title'] = $nam_e . $page_extra;
 	$rss_title = $metatags['title'];
 
 } elseif ($titl_e) {
 
-	$metatags['title'] = $titl_e . $page_extra . ' &raquo; ' . $config['home_title'];
+	$metatags['title'] = $titl_e . $page_extra;
 
 } else $metatags['title'] .= $page_extra;
 
-if ( $metatags['header_title'] ) $metatags['title'] = stripslashes($metatags['header_title'].$page_extra);
+//разные title для страниц пагинации, для первой полный title, для пагинации короткий
+if ($do == "cat" and $category != '' and $subaction == '') { //если категория
+	if ( $metatags['header_title'] and ! $page_extra ) $metatags['title'] = stripslashes($metatags['header_title']);
+	else $metatags['title'] = stripslashes($cat_info[$category_id]['name']) . $page_extra;
+} elseif ($dle_module == "main") { //если главная страница
+	if ( ! $page_extra ) $metatags['title'] = stripslashes($config['home_title']);
+	else $metatags['title'] = stripslashes($config['short_title']) . $page_extra;
+} elseif ($metatags['header_title']) $metatags['title'] = stripslashes($metatags['header_title']);
+//разные title для страниц пагинации, для первой полный title, для пагинации короткий
 if ( $disable_index ) $disable_index = "\n<meta name=\"robots\" content=\"noindex,nofollow\" />"; else $disable_index = "";
 
 if (! $rss_url) {
@@ -775,12 +839,45 @@ if (! $rss_url) {
 $metatags = <<<HTML
 <meta http-equiv="Content-Type" content="text/html; charset={$config['charset']}" />
 <title>{$metatags['title']}</title>
-<meta name="description" content="{$metatags['description']}" />
+<meta name="description" content="{$metatags['description']}{$meta_ext_page}" />
 <meta name="keywords" content="{$metatags['keywords']}" />{$disable_index}
-<meta name="generator" content="DataLife Engine (http://dle-news.ru)" />
 <link rel="search" type="application/opensearchdescription+xml" href="{$config['http_home_url']}engine/opensearch.php" title="{$config['home_title']}" />
 HTML;
 
+if (
+	$do == 'addnews' OR /* Страница добавления новости с сайта */
+	$do == 'users' OR 
+	//$do == 'alltags' OR /* Страница просмотра списка тегов */
+	$do == 'feedback' OR /* Страница формы обратной связи */
+	$do == 'favorites' OR /* Страницы закладок пользователей */
+	$do == 'lastcomments' OR /* Страница просмотра всех последних комментариев на сайте, в т.ч. комментариев отдельного пользователя */
+	$do == 'lastnews' OR /* Страница просмотра всех последних новостей */
+	$do == 'lostpassword' OR /* Страница восстановления пароля */
+	$do == 'pm' OR /* Страницы личных сообщений пользователей */
+	//$do == 'register' OR /* Страница регистрации нового пользователя */
+	//$do == 'rules' OR /* Страница правил сайта */
+	$do == 'stats' OR /* Страница статистики сайта */
+	$do == 'search' OR /* Страница поиска и результатов поиска */
+	//$do == 'static' OR /* Все статические страницы */
+	$do == 'tags' OR /* Просмотр новостей по тегу */
+	$do == 'xfsearch' OR /* Просмотр новостей новостей по доп. полям */
+	$subaction == 'allnews' OR /* Просмотр всех новостей пользователя */
+	$subaction == 'newposts' OR /* Просмотр непрочитанных новостей для пользователя */
+	//$subaction == 'showfull' OR /* Просмотр полной новости */
+	$subaction == 'userinfo' OR /* Просмотр профиля пользователя */
+	$dle_module == 'date' OR /* Просмотр архива новостей за год/месяц/день. Заменяет собой сразу все три следующие строки */
+	//($year != '' and $month == '' and $day == '') OR /* Просмотр архива новостей за год */
+	//($year != '' and $month != '' and $day == '') OR /* Просмотр архива новостей за месяц */
+	//($year != '' and $month != '' and $day != '' and $subaction == '') OR /* Просмотр архива новостей за день */
+	(intval($_GET['cstart']) > 1 ) OR /* Любые страницы пагинации */
+	//($dle_module == 'main' and (intval($_GET['cstart']) > 1)) OR /* Страницы пагинации для главной страницы */
+	//($do == 'cat' and $category != '' and $subaction == '' and (intval($_GET['cstart']) > 1)) OR /* Страницы пагинации только для категорий */
+	//($do == 'cat' and $category != '' and $subaction == '') OR /* Просмотр любой категории */
+	//($do == 'cat' and $category_id == 'X' and $subaction == '') OR /* Просмотр определенной категории. X заменить на id категории */
+	$catalog != '' /* Просмотр каталога по буквенному идентификатору */
+	) $metatags .= <<<HTML
+\n<meta name="robots" content="noindex,nofollow" />
+HTML;
 if ($config['allow_rss']) $metatags .= <<<HTML
 
 <link rel="alternate" type="application/rss+xml" title="{$rss_title}" href="{$rss_url}" />
@@ -793,7 +890,15 @@ HTML;
 */
 if ($config['speedbar'] and ! isset ( $view_template )) {
 	
-	$s_navigation = "<a href=\"{$config['http_home_url']}\">" . $config['short_title'] . "</a>";
+	$s_navigation = "<span typeof=\"v:Breadcrumb\"><a href=\"{$config['http_home_url']}\" rel=\"v:url\" property=\"v:title\">" . $config['short_title'] . "</a></span>";
+	// DLE Friends v1.5
+	if ($do == "friends") {
+		if( $config['allow_alt_url'] == "yes" ) $url_user = "<a href=\"" . $config['http_home_url'] . "user/" . urlencode( $user ) . "/\">" . stripslashes( $user ) . "</a>";
+		else $url_user = "<a href=\"$PHP_SELF?subaction=userinfo&amp;user=" . urlencode( $user ) . "\">" . stripslashes( $user ) . "</a>";
+		
+		$s_navigation .= " &raquo; " . $url_user;
+	}
+// DLE Friends v1.5
 
 	if (intval($category_id)) $s_navigation .= " &raquo; " . get_categories ( $category_id );
 	elseif ($do == 'tags') {
@@ -801,14 +906,13 @@ if ($config['speedbar'] and ! isset ( $view_template )) {
 		if ($config['allow_alt_url'] == "yes") $s_navigation .= " &raquo; <a href=\"" . $config['http_home_url'] . "tags/\">" . $lang['tag_cloud'] . "</a> &raquo; " . $tag;
 		else $s_navigation .= " &raquo; <a href=\"?do=tags\">" . $lang['tag_cloud'] . "</a> &raquo; " . $tag;
 
-	} elseif ($nam_e) $s_navigation .= " &raquo; " . $nam_e;
-
-	if ($titl_e) $s_navigation .= " &raquo; " . $titl_e;
+	}
 	
 	$tpl->load_template ( 'speedbar.tpl' );
-	$tpl->set ( '{speedbar}', '<span id=\'dle-speedbar\'>' . stripslashes ( $s_navigation ) . '</span>' );
+    $tpl->set ( '{speedbar}', '<span id="dle-speedbar" xmlns:v="http://rdf.data-vocabulary.org/#">' . stripslashes ( $s_navigation ) . '</span>' );
 	$tpl->compile ( 'speedbar' );
 	$tpl->clear ();
+
 
 }
 ?>
