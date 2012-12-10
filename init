@@ -46,7 +46,6 @@ require_once ENGINE_DIR . '/classes/mysql.php';
 require_once ENGINE_DIR . '/data/dbconfig.php';
 require_once ENGINE_DIR . '/modules/functions.php';
 require_once ENGINE_DIR . '/modules/gzip.php';
-require_once ENGINE_DIR . '/modules/ulogin.php';
 
 dle_session();
 
@@ -410,18 +409,6 @@ $tpl->set( '{login}', $member_id['name'] );
 $tpl->set( '{pm-link}', $PHP_SELF . "?do=pm" );
 $tpl->set( '{new-pm}', $member_id['pm_unread'] );
 $tpl->set( '{all-pm}', $member_id['pm_all'] );
-// DLE Friends by Elegant Division (http://e-div.com)
-if( $member_id['friends_temp'] ) $tpl->set( '{request-count}', "(" . count(explode("," ,$member_id['friends_temp'])) . ")" );
-else $tpl->set( '{request-count}', "" );
-
-if( $config['allow_alt_url'] == "yes" ) {
-	$tpl->set( '{friends-link}', $config['http_home_url'] . "friends/" . urlencode( $member_id['name'] ) );
-	$tpl->set( '{feed-link}', $config['http_home_url'] . "friendsfeed/" );
-} else {
-	$tpl->set( '{friends-link}', $PHP_SELF . "?do=friends&amp;user=" . urlencode( $member_id['name'] ) );
-	$tpl->set( '{feed-link}', $PHP_SELF . "?do=friendsfeed" );
-}
-// DLE Friends by Elegant Division (http://e-div.com)
 
 if( $user_group[$member_id['user_group']]['icon'] ) $tpl->set( '{group-icon}', "<img src=\"" . $user_group[$member_id['user_group']]['icon'] . "\" alt=\"\" />" );
 else $tpl->set( '{group-icon}', "" );
@@ -466,7 +453,6 @@ require_once ENGINE_DIR . '/modules/calendar.php';
 if ($config['allow_topnews'] == "yes") include_once ENGINE_DIR . '/modules/topnews.php';
 
 if ($config['rss_informer']) include_once ENGINE_DIR . '/modules/rssinform.php';
-require_once ('engine/bullet_energy/api/bullet_api.class.php');
 
 require_once ROOT_DIR . '/engine/engine.php';
 
@@ -477,6 +463,5 @@ if ( !defined('BANNERS') ) {
 }
 
 if ($config['allow_tags']) include_once ENGINE_DIR . '/modules/tagscloud.php';
-include_once ENGINE_DIR.'/modules/awards/topawards.php';
-require_once ENGINE_DIR.'/modules/zu_visited.php';
+
 ?>
