@@ -31,26 +31,34 @@ define ( 'ROOT_DIR', dirname ( __FILE__ ) );
 define ( 'ENGINE_DIR', ROOT_DIR . '/engine' );
 
 require_once ROOT_DIR . '/engine/init.php';
+$apiBullet->getLastPost(array('count' => 5));
 
 if (clean_url ( $_SERVER['HTTP_HOST'] ) != clean_url ( $config['http_home_url'] )) {
-  
+	
 	$replace_url = array ();
 	$replace_url[0] = clean_url ( $config['http_home_url'] );
 	$replace_url[1] = clean_url ( $_SERVER['HTTP_HOST'] );
 
 } else
 	$replace_url = false;
+$tpl->set('{forumStyle}', require_once ROOT_DIR . '/engine/bullet_energy/modules/load_style.php');
 
-$tpl->load_template ( 'main.tpl' );
+$tpl->load_template ('main.tpl');
+
+$tpl->set('{forumPost}', $tpl->result['last_topic_box']);
 
 $tpl->set ( '{calendar}', $tpl->result['calendar'] );
 $tpl->set ( '{archives}', $tpl->result['archive'] );
 $tpl->set ( '{tags}', $tpl->result['tags_cloud'] );
 $tpl->set ( '{vote}', $tpl->result['vote'] );
 $tpl->set ( '{topnews}', $tpl->result['topnews'] );
+$tpl->set ( '{topawards}', $topawards );
+$tpl->set ( '{toppoints}', $toppoints );
 $tpl->set ( '{login}', $tpl->result['login_panel'] );
 $tpl->set ( '{info}',  $tpl->result['info'] );
 $tpl->set ( '{speedbar}', $tpl->result['speedbar'] );
+$tpl->set('{zu_visited}',$zu_visited);
+$tpl->set( '{ulogin}', urlencode('http://' . $_SERVER['HTTP_HOST'] .$_SERVER['REQUEST_URI'] ));
 
 if ($config['allow_skin_change'] == "yes") $tpl->set ( '{changeskin}', ChangeSkin ( ROOT_DIR . '/templates', $config['skin'] ) );
 
@@ -313,8 +321,6 @@ $tpl->result['main'] = str_replace ( '<img src="http://'.$_SERVER['HTTP_HOST'].'
 echo $tpl->result['main'];
 $tpl->global_clear ();
 $db->close ();
-
-echo "\n<!-- DataLife Engine Copyright SoftNews Media Group (http://dle-news.ru) -->\r\n";
 
 GzipOut();
 ?>
